@@ -1,4 +1,5 @@
-import type { AccentKey, PersonaKey } from "./types";
+import type { AccentKey } from "@/lib/meeting/types";
+import type { PersonaKey } from "./types";
 
 export type Topic = "money" | "tech" | "customer" | "risk" | "general";
 

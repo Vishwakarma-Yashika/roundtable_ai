@@ -66,7 +66,10 @@ export function MessageBubble({ message, author, replyTo, live = false }: Messag
             {time}
           </span>
         </div>
-        <p className="text-[15px] leading-relaxed text-zinc-200">{message.text}</p>
+        <p className="text-[15px] leading-relaxed text-zinc-200">
+          {message.text}
+          {message.status === "interrupted" && <InterruptedMark />}
+        </p>
       </li>
     );
   }
@@ -105,9 +108,17 @@ export function MessageBubble({ message, author, replyTo, live = false }: Messag
               Counterargument
             </p>
           )}
-          <p className="text-[15px] leading-relaxed text-zinc-200">{message.text}</p>
+          <p className="text-[15px] leading-relaxed text-zinc-200">
+            {message.text}
+            {message.status === "interrupted" && <InterruptedMark />}
+          </p>
         </div>
       </div>
     </li>
   );
+}
+
+/** Marks a message the speaker didn't get to finish. */
+function InterruptedMark() {
+  return <span className="ml-1.5 whitespace-nowrap text-xs italic text-zinc-500">— interrupted</span>;
 }

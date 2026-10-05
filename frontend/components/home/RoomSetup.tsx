@@ -7,6 +7,9 @@ interface RoomSetupProps {
   onTogglePerspective: (perspective: Perspective) => void;
   onReset: () => void;
   onEnterRoom: () => void;
+  /** True while the room is being created. */
+  entering: boolean;
+  enterError: string | null;
 }
 
 export function RoomSetup({
@@ -15,6 +18,8 @@ export function RoomSetup({
   onTogglePerspective,
   onReset,
   onEnterRoom,
+  entering,
+  enterError,
 }: RoomSetupProps) {
   return (
     <main className="min-h-screen overflow-hidden bg-[#050505] text-white">
@@ -173,20 +178,26 @@ export function RoomSetup({
         {/* Enter Room */}
         <div className="mx-auto mt-14 max-w-md">
           <button
-            disabled={selectedPerspectives.length < 2}
+            disabled={selectedPerspectives.length < 2 || entering}
             onClick={onEnterRoom}
             className="group flex w-full items-center justify-center gap-3 rounded-2xl bg-white px-6 py-4 font-semibold text-black shadow-2xl shadow-violet-950/20 transition hover:scale-[1.02] hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
           >
-            Enter The Room
+            {entering ? "Entering…" : "Enter The Room"}
 
             <span className="transition-transform group-hover:translate-x-1">
               →
             </span>
           </button>
 
-          <p className="mt-4 text-center text-xs text-zinc-700">
-            You need at least two perspectives to start.
-          </p>
+          {enterError ? (
+            <p role="alert" className="mt-4 text-center text-xs text-rose-300">
+              {enterError}
+            </p>
+          ) : (
+            <p className="mt-4 text-center text-xs text-zinc-700">
+              You need at least two perspectives to start.
+            </p>
+          )}
         </div>
       </section>
     </main>

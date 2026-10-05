@@ -1,4 +1,5 @@
-import { CUSTOM_ACCENT_ORDER } from "./accents";
+import { CUSTOM_ACCENT_ORDER } from "@/lib/meeting/accents";
+import type { AccentKey, NewPerspectiveInput, RoomConfig } from "@/lib/meeting/types";
 import {
   MODERATOR,
   PERSONAS,
@@ -6,12 +7,7 @@ import {
   type Persona,
   type Topic,
 } from "./personas";
-import type {
-  AccentKey,
-  NewPerspectiveInput,
-  Participant,
-  RoomConfig,
-} from "./types";
+import type { MockParticipant } from "./types";
 
 /* ---------------------------------------------------------
    Helpers
@@ -49,7 +45,7 @@ function lowerFirst(text: string): string {
   return trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
 }
 
-function personaFor(participant: Participant): Persona | undefined {
+function personaFor(participant: MockParticipant): Persona | undefined {
   return participant.personaKey ? PERSONAS[participant.personaKey] : undefined;
 }
 
@@ -57,8 +53,8 @@ function personaFor(participant: Participant): Persona | undefined {
    Building the room
 --------------------------------------------------------- */
 
-export function buildParticipants(config: RoomConfig): Participant[] {
-  const moderator: Participant = {
+export function buildParticipants(config: RoomConfig): MockParticipant[] {
+  const moderator: MockParticipant = {
     id: MODERATOR.id,
     name: MODERATOR.name,
     role: MODERATOR.role,
@@ -71,7 +67,7 @@ export function buildParticipants(config: RoomConfig): Participant[] {
 
   const usedAccents: AccentKey[] = [MODERATOR.accent];
 
-  const agents = config.perspectives.map((perspective): Participant => {
+  const agents = config.perspectives.map((perspective): MockParticipant => {
     const persona = Object.values(PERSONAS).find((p) =>
       p.roles.includes(perspective.role)
     );
@@ -109,7 +105,7 @@ export function buildParticipants(config: RoomConfig): Participant[] {
 export function createCustomParticipant(
   input: NewPerspectiveInput,
   usedAccents: AccentKey[]
-): Participant {
+): MockParticipant {
   const accent =
     CUSTOM_ACCENT_ORDER.find((key) => !usedAccents.includes(key)) ??
     randomItem(CUSTOM_ACCENT_ORDER);
@@ -154,8 +150,8 @@ export function detectTopic(text: string): Topic {
 /** Returns the agent explicitly named in the text, if any. */
 export function findAddressed(
   text: string,
-  participants: Participant[]
-): Participant | undefined {
+  participants: MockParticipant[]
+): MockParticipant | undefined {
   const words = new Set(tokenize(text));
   return participants.find(
     (p) => p.kind === "agent" && p.keywords.some((k) => words.has(k))
@@ -164,9 +160,9 @@ export function findAddressed(
 
 export function pickResponder(
   text: string,
-  participants: Participant[],
+  participants: MockParticipant[],
   recentSpeakerIds: string[]
-): Participant | undefined {
+): MockParticipant | undefined {
   const agents = participants.filter((p) => p.kind === "agent");
   if (agents.length === 0) return undefined;
 
@@ -203,9 +199,9 @@ export function pickResponder(
 
 /** Picks someone other than `excludeId` to react, preferring contrarian voices. */
 export function pickReactor(
-  participants: Participant[],
+  participants: MockParticipant[],
   excludeId: string
-): Participant | undefined {
+): MockParticipant | undefined {
   const candidates = participants.filter(
     (p) => p.kind === "agent" && p.id !== excludeId
   );
@@ -220,7 +216,7 @@ export function pickReactor(
    Generating lines
 --------------------------------------------------------- */
 
-function customLines(participant: Participant) {
+function customLines(participant: MockParticipant) {
   const focus = lowerFirst(participant.focus || participant.role);
   const role = participant.role;
 
@@ -278,14 +274,14 @@ function joinAcknowledgement(prefix: string, line: string): string {
   return prefix + line;
 }
 
-export function generateOpening(participant: Participant, used: Set<string>): string {
+export function generateOpening(participant: MockParticipant, used: Set<string>): string {
   const persona = personaFor(participant);
   const pool = persona ? persona.openings : customLines(participant).opening;
   return pickFresh(pool, used);
 }
 
 export function generateReply(
-  participant: Participant,
+  participant: MockParticipant,
   userText: string,
   used: Set<string>
 ): string {
@@ -302,8 +298,8 @@ export function generateReply(
 }
 
 export function generateReaction(
-  participant: Participant,
-  target: Participant,
+  participant: MockParticipant,
+  target: MockParticipant,
   used: Set<string>
 ): { text: string; agrees: boolean } {
   const persona = personaFor(participant);
@@ -320,7 +316,7 @@ export function generateReaction(
   };
 }
 
-export function generateChallenge(participant: Participant, used: Set<string>): string {
+export function generateChallenge(participant: MockParticipant, used: Set<string>): string {
   const persona = personaFor(participant);
   const pool = persona ? persona.challenges : customLines(participant).challenges;
   return pickFresh(pool, used);

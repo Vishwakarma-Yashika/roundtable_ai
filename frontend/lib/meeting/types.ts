@@ -1,66 +1,33 @@
-export type AccentKey =
-  | "violet"
-  | "emerald"
-  | "rose"
-  | "sky"
-  | "amber"
-  | "fuchsia"
-  | "cyan"
-  | "lime"
-  | "orange"
-  | "indigo";
+/**
+ * Meeting Room types. Domain and snapshot types come from the shared
+ * protocol package so the mock and live controllers (and the room server)
+ * agree on one shape; frontend-only concerns are defined here.
+ */
+import type { MeetingSnapshot } from "@roundtable/shared";
 
-export type ParticipantKind = "agent" | "moderator";
+export type {
+  AccentKey,
+  Activity,
+  ConnectionState,
+  MeetingSnapshot,
+  Message,
+  MessageKind,
+  MessageStatus,
+  MessageTone,
+  Participant,
+  ParticipantKind,
+  ProtocolError,
+  RoomMode,
+  RoomPhase,
+} from "@roundtable/shared";
 
-export interface Participant {
-  id: string;
-  name: string;
-  role: string;
-  /** Emoji icon. Custom perspectives fall back to initials. */
-  icon?: string;
-  /** One-line description of what this perspective cares about. */
-  focus: string;
-  accent: AccentKey;
-  kind: ParticipantKind;
-  /** Lower-case keywords that make this participant likely to respond. */
-  keywords: string[];
-  /** Persona key into the mock line library; undefined for custom perspectives. */
-  personaKey?: PersonaKey;
-  isCustom?: boolean;
-}
-
-export type PersonaKey = "investor" | "devil" | "engineer" | "customer";
-
+/** How a participant appears in the sidebar; derived in the UI. */
 export type ParticipantStatus =
   | "listening"
   | "thinking"
   | "speaking"
   | "challenging"
   | "left";
-
-export type MessageKind = "user" | "agent" | "moderator" | "system";
-
-export type MessageTone = "default" | "challenge";
-
-export interface Message {
-  id: string;
-  kind: MessageKind;
-  /** Participant id; undefined for user and system messages. */
-  authorId?: string;
-  text: string;
-  tone: MessageTone;
-  /** Seconds since the meeting started. */
-  at: number;
-  /** Participant id this message is responding to. */
-  replyToId?: string;
-}
-
-export type RoomMode = "discussion" | "challenge";
-
-export interface Activity {
-  participantId: string;
-  phase: "thinking" | "speaking";
-}
 
 /** What the Room Setup screen hands to the Meeting Room. */
 export interface RoomConfig {
@@ -78,29 +45,24 @@ export interface NewPerspectiveInput {
   focus: string;
 }
 
-/** Everything the Meeting Room UI renders. Treated as immutable. */
-export interface MeetingSnapshot {
-  participants: Participant[];
-  messages: Message[];
-  activity: Activity | null;
-  mode: RoomMode;
-  /** The position being attacked while in challenge mode. */
-  challengeAssumption: string | null;
-  ended: boolean;
-  /** Final duration in seconds, set when the meeting ends. */
-  durationSeconds: number;
+/** Room actions a controller supports; the UI disables the rest. */
+export interface MeetingCapabilities {
+  challenge: boolean;
+  addPerspective: boolean;
 }
 
 /**
- * The boundary between the Meeting Room UI and whatever runs the meeting.
- * Today that is the local mock engine; later a WebSocket/LLM-backed client
- * can implement the same contract without touching the components.
+ * The boundary between the Meeting Room UI and whatever runs the meeting:
+ * the local mock engine or the live room server. Components only ever see
+ * this contract and the MeetingSnapshot it produces.
  *
  * Actions are fire-and-forget: results arrive as new snapshots.
  * `subscribe`, `getSnapshot` and `getElapsedSeconds` are passed around
  * detached, so implementations must bind them (e.g. arrow properties).
  */
 export interface MeetingController {
+  readonly capabilities: MeetingCapabilities;
+
   /** useSyncExternalStore-compatible subscription. */
   subscribe(listener: () => void): () => void;
   getSnapshot(): MeetingSnapshot;
@@ -111,7 +73,10 @@ export interface MeetingController {
   /** Called when the room unmounts. Must cancel all pending async work. */
   stop(): void;
 
+  /** Speak to the room. Implicitly interrupts whoever holds the floor. */
   sendMessage(text: string): void;
+  /** Cut off the current speaker without saying anything. */
+  interrupt(): void;
   challengeRoom(): void;
   addPerspective(input: NewPerspectiveInput): void;
   end(): void;

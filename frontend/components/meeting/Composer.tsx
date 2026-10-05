@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useSpeechInput, type SpeechInputError } from "@/hooks/useSpeechInput";
-import type { RoomMode } from "@/lib/meeting/types";
+import type { MeetingCapabilities, RoomMode } from "@/lib/meeting/types";
 import { BoltIcon, MicIcon, PlusIcon, SendIcon, StopIcon } from "./icons";
 import { SpeakingBars } from "./ParticipantAvatar";
 
@@ -14,12 +14,14 @@ const SPEECH_ERRORS: Record<SpeechInputError, string> = {
 
 interface ComposerProps {
   mode: RoomMode;
+  /** Actions the current backend supports; unsupported ones are disabled. */
+  capabilities: MeetingCapabilities;
   onSend: (text: string) => void;
   onChallenge: () => void;
   onAddPerspective: () => void;
 }
 
-export function Composer({ mode, onSend, onChallenge, onAddPerspective }: ComposerProps) {
+export function Composer({ mode, capabilities, onSend, onChallenge, onAddPerspective }: ComposerProps) {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Text typed before dictation started; the live transcript is appended to it.
@@ -75,7 +77,8 @@ export function Composer({ mode, onSend, onChallenge, onAddPerspective }: Compos
           <button
             type="button"
             onClick={onChallenge}
-            disabled={challenging}
+            disabled={challenging || !capabilities.challenge}
+            title={capabilities.challenge ? undefined : "Not available in live rooms yet"}
             className="flex items-center gap-1.5 rounded-full border border-rose-400/20 bg-rose-500/[0.06] px-3.5 py-2 text-xs font-medium text-rose-200 transition hover:border-rose-400/40 hover:bg-rose-500/[0.12] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <BoltIcon className="h-3.5 w-3.5" />
@@ -85,7 +88,9 @@ export function Composer({ mode, onSend, onChallenge, onAddPerspective }: Compos
           <button
             type="button"
             onClick={onAddPerspective}
-            className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-medium text-zinc-300 transition hover:border-violet-400/30 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+            disabled={!capabilities.addPerspective}
+            title={capabilities.addPerspective ? undefined : "Not available in live rooms yet"}
+            className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-medium text-zinc-300 transition hover:border-violet-400/30 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-white/10 disabled:hover:text-zinc-300"
           >
             <PlusIcon className="h-3.5 w-3.5" />
             Add Perspective

@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LandingPage } from "@/components/home/LandingPage";
 import { RoomSetup } from "@/components/home/RoomSetup";
-import { saveRoomConfig } from "@/lib/meeting/room-config";
+import { launchRoom } from "@/lib/meeting/launchRoom";
 import { perspectives, type Perspective } from "@/lib/perspectives";
 
 export default function Home() {
   const router = useRouter();
   const [decision, setDecision] = useState("");
+  const [entering, setEntering] = useState(false);
+  const [enterError, setEnterError] = useState<string | null>(null);
   const [roomCreated, setRoomCreated] = useState(false);
   const [selectedPerspectives, setSelectedPerspectives] =
     useState<Perspective[]>(perspectives);
@@ -44,19 +46,25 @@ export default function Home() {
     }
   };
 
-  const enterRoom = () => {
-    if (selectedPerspectives.length < 2) return;
+  const enterRoom = async () => {
+    if (selectedPerspectives.length < 2 || entering) return;
 
-    saveRoomConfig({
-      decision: decision.trim(),
-      perspectives: selectedPerspectives.map(({ role, icon, description }) => ({
-        role,
-        icon,
-        description,
-      })),
-    });
-
-    router.push("/room");
+    setEntering(true);
+    setEnterError(null);
+    try {
+      const href = await launchRoom({
+        decision: decision.trim(),
+        perspectives: selectedPerspectives.map(({ role, icon, description }) => ({
+          role,
+          icon,
+          description,
+        })),
+      });
+      router.push(href);
+    } catch (error) {
+      setEnterError(error instanceof Error ? error.message : "Couldn't open the room.");
+      setEntering(false);
+    }
   };
 
   const resetRoom = () => {
@@ -78,6 +86,8 @@ export default function Home() {
         onTogglePerspective={togglePerspective}
         onReset={resetRoom}
         onEnterRoom={enterRoom}
+        entering={entering}
+        enterError={enterError}
       />
     );
   }

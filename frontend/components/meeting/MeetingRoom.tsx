@@ -1,17 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
-import { useMeetingEngine } from "@/hooks/useMeetingEngine";
+import { useMeetingController } from "@/hooks/useMeetingController";
+import { meetingConfig } from "@/lib/meeting/config";
+import type { MeetingControllerOptions } from "@/lib/meeting/controllers/createMeetingController";
 import {
   DEMO_ROOM_CONFIG,
   parseRoomConfig,
   readStoredRoomConfig,
 } from "@/lib/meeting/room-config";
 import type {
+  MeetingSnapshot,
   NewPerspectiveInput,
   Participant,
   ParticipantStatus,
-  RoomConfig,
 } from "@/lib/meeting/types";
 import { AddPerspectiveModal } from "./AddPerspectiveModal";
 import { Composer } from "./Composer";
@@ -25,8 +28,9 @@ const SERVER_SNAPSHOT = "__server__";
 const noopSubscribe = () => () => {};
 
 /**
- * Entry point for /room. Reads the room configured on the setup screen from
- * sessionStorage (client-only), falling back to a demo room.
+ * Entry point for /room: the local mock meeting. Reads the room configured
+ * on the setup screen from sessionStorage (client-only), falling back to a
+ * demo room.
  */
 export function MeetingRoom() {
   const raw = useSyncExternalStore(
@@ -53,15 +57,33 @@ export function MeetingRoom() {
   return (
     <MeetingSession
       key={raw ?? "demo"}
-      config={stored ?? DEMO_ROOM_CONFIG}
+      options={{ kind: "mock", config: stored ?? DEMO_ROOM_CONFIG }}
       isDemo={!stored}
     />
   );
 }
 
-function MeetingSession({ config, isDemo }: { config: RoomConfig; isDemo: boolean }) {
+/** Entry point for /room/[roomId]: a room run by the room server. */
+export function LiveMeetingRoom({ roomId }: { roomId: string }) {
+  return (
+    <MeetingSession
+      key={roomId}
+      options={{ kind: "live", roomId, serverUrl: meetingConfig.roomServerUrl }}
+      isDemo={false}
+    />
+  );
+}
+
+function MeetingSession({
+  options,
+  isDemo,
+}: {
+  options: MeetingControllerOptions;
+  isDemo: boolean;
+}) {
+  const { controller, snapshot } = useMeetingController(options);
   const {
-    controller,
+    decision,
     participants,
     messages,
     activity,
@@ -69,7 +91,7 @@ function MeetingSession({ config, isDemo }: { config: RoomConfig; isDemo: boolea
     challengeAssumption,
     ended,
     durationSeconds,
-  } = useMeetingEngine(config);
+  } = snapshot;
 
   const [addOpen, setAddOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
@@ -94,10 +116,19 @@ function MeetingSession({ config, isDemo }: { config: RoomConfig; isDemo: boolea
     setEndOpen(false);
   };
 
+  // Before the first server snapshot there is no room to render yet.
+  if (snapshot.seq === 0) {
+    return (
+      <RoomShell>
+        <RoomPlaceholder snapshot={snapshot} />
+      </RoomShell>
+    );
+  }
+
   return (
     <RoomShell>
       <MeetingHeader
-        decision={config.decision}
+        decision={decision}
         mode={mode}
         ended={ended}
         durationSeconds={durationSeconds}
@@ -111,8 +142,10 @@ function MeetingSession({ config, isDemo }: { config: RoomConfig; isDemo: boolea
         <section aria-label="Meeting" className="flex min-w-0 flex-1 flex-col">
           <ParticipantStrip participants={participants} statusOf={statusOf} />
 
+          <ConnectionNotice snapshot={snapshot} />
+
           <Transcript
-            decision={config.decision}
+            decision={decision}
             isDemo={isDemo}
             messages={messages}
             participants={participants}
@@ -133,6 +166,7 @@ function MeetingSession({ config, isDemo }: { config: RoomConfig; isDemo: boolea
           ) : (
             <Composer
               mode={mode}
+              capabilities={controller.capabilities}
               onSend={(text) => controller.sendMessage(text)}
               onChallenge={() => controller.challengeRoom()}
               onAddPerspective={() => setAddOpen(true)}
@@ -156,6 +190,60 @@ function MeetingSession({ config, isDemo }: { config: RoomConfig; isDemo: boolea
         onConfirm={handleEndMeeting}
       />
     </RoomShell>
+  );
+}
+
+/** Shown until the first snapshot arrives: connecting, or the room is gone. */
+function RoomPlaceholder({ snapshot }: { snapshot: MeetingSnapshot }) {
+  const notFound = snapshot.lastError?.code === "room_not_found";
+
+  return (
+    <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+      {notFound ? (
+        <>
+          <p className="text-base font-medium text-white">This room isn&apos;t available</p>
+          <p className="max-w-sm text-sm text-zinc-500">
+            It may have ended, or the link is incorrect. Rooms aren&apos;t saved yet, so a
+            server restart also closes them.
+          </p>
+          <Link
+            href="/"
+            className="mt-2 rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-black transition hover:bg-zinc-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400"
+          >
+            Build a new room
+          </Link>
+        </>
+      ) : (
+        <p role="status" className="text-sm text-zinc-500">
+          {snapshot.connection === "reconnecting"
+            ? "Can't reach the room server. Retrying…"
+            : "Connecting to your room…"}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Live rooms only: surfaces a lost connection or a rejected action. */
+function ConnectionNotice({ snapshot }: { snapshot: MeetingSnapshot }) {
+  const message =
+    snapshot.connection === "reconnecting"
+      ? "Connection lost. Reconnecting…"
+      : snapshot.connection === "offline"
+        ? "Disconnected from the room."
+        : snapshot.lastError && !snapshot.ended
+          ? snapshot.lastError.message
+          : null;
+
+  if (!message) return null;
+
+  return (
+    <p
+      role="status"
+      className="rt-fade-in border-b border-amber-400/15 bg-amber-500/[0.06] px-4 py-2 text-center text-xs text-amber-200/90"
+    >
+      {message}
+    </p>
   );
 }
 

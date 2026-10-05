@@ -1,0 +1,22 @@
+{
+  "name": "@roundtable/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Versioned real-time protocol, domain schemas and the pure meeting reducer shared by the frontend and room server.",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

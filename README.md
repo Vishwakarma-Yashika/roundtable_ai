@@ -627,24 +627,45 @@ cd roundtable-ai
 
 ## 2. Install dependencies
 
+The repository is an npm workspace (`frontend`, `backend`, `shared`). Install once, from the root:
+
 ```bash
 npm install
 ```
 
-## 3. Configure environment variables
+## 3. Configure environment variables (optional)
 
-Create:
+Both apps run with sensible defaults. To override them, copy the documented examples:
 
 ```text
-.env
+frontend/.env.example  →  frontend/.env.local
+backend/.env.example   →  backend/.env
 ```
 
-and add the required API keys.
+No API keys are needed yet: the room server currently uses a local fake LLM provider.
 
-## 4. Start development server
+## 4. Start development servers
+
+Local demo (no backend needed):
 
 ```bash
-npm run dev
+npm run dev:frontend
+```
+
+Live rooms through the room server: set `NEXT_PUBLIC_MEETING_BACKEND=live` in `frontend/.env.local`, then run both:
+
+```bash
+npm run dev:backend    # room server on http://localhost:4000
+npm run dev:frontend   # app on http://localhost:3000
+```
+
+## 5. Checks
+
+```bash
+npm run typecheck   # all workspaces
+npm run lint        # frontend
+npm test            # shared + backend (Vitest)
+npm run build       # frontend production build
 ```
 
 ---
